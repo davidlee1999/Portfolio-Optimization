@@ -105,7 +105,7 @@ def calcCovMatrix():
                     # corr_matrix[i][j] = np.corrcoef(data_i, data_j)[0][1]
                 else: # otherwise, it may divide zero
                     corr_matrix[i][j] = 0
-    print(corr_matrix)
+    # print(corr_matrix)
     return cov_matrix, corr_matrix
 
 # This is the most TRIVIAL one for expected return from historical data
