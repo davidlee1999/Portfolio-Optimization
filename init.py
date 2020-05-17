@@ -15,6 +15,8 @@ dataTable = None
 summaryTable = None
 assetsList = None
 asset_to_num = None
+managementFee = None
+custodianFee = None
 NUM = 57 # number of all available assets
 DAY_LIM = 4000 # number of all available dates, infact, the precise number is 3640
 
@@ -27,8 +29,10 @@ def read_CSV():
 
 # build the mapping between Symbol and number
 def getAssetsList():
-    global assetsList, asset_to_num
+    global assetsList, asset_to_num, managementFee, custodianFee
     assetsList = summaryTable["Symbol"]
+    managementFee = summaryTable["ManagementFee"]
+    custodianFee = summaryTable["CustodianFee"]
     asset_to_num = {}
     for i in range(len(assetsList)):
         asset_to_num[assetsList[i]] = i
@@ -46,9 +50,10 @@ def date_to_int(str_1):
 start_date = np.zeros(NUM, np.int)
 end_date = np.zeros(NUM, np.int)
 close_price = np.zeros((NUM, DAY_LIM))
+return_daily = np.zeros((NUM, DAY_LIM))
 
 def preprocess():
-    global start_date, end_date, close_price
+    global start_date, end_date, close_price, return_daily
     # First parse: get all dates and then sort them, and finally renumber the date
     all_dates = []
     date_to_num = {}
@@ -70,6 +75,9 @@ def preprocess():
         this_day = date_to_num[this_line["TradingDate"]]
         this_asset = asset_to_num[this_line["Symbol"]]
         close_price[this_asset][this_day] = this_line["ClosePrice"]
+        return_daily[this_asset][this_day] = this_line["ReturnDaily"]
+        if np.isnan(return_daily[this_asset][this_day]):
+            return_daily[this_asset][this_day] = 0
 
         # the data is monotone in date for one asset, so the following code is correct
         if start_date[this_asset] == 0:
@@ -78,7 +86,7 @@ def preprocess():
 
     # print(start_date)
     # print(end_date)
-    # print(close_price)
+    # print(return_daily)
     return
 
 # This function calculate the cov matrix.
@@ -94,17 +102,19 @@ def calcCovMatrix():
                 cov_matrix[i][j] = 0
                 corr_matrix[i][j] = 0
             else:
-                data_i = close_price[i][L:R+1]
-                data_j = close_price[j][L:R+1]
+                data_i = return_daily[i][L:R+1]
+                data_j = return_daily[j][L:R+1]
                 # print(data_i.shape)
                 # print(data_j)
                 cov_22 = np.cov(data_i, data_j) # 2*2 covariance matrix
                 cov_matrix[i][j] = cov_22[0][1]
-                if np.fabs(cov_22[0][0]) > 1e-5 and np.fabs(cov_22[1][1]) > 1e-5:
+                if cov_22[0][0] * cov_22[1][1] > 0:
                     corr_matrix[i][j] = cov_22[0][1] / np.sqrt(cov_22[0][0] * cov_22[1][1]) # a little bit faster
                     # corr_matrix[i][j] = np.corrcoef(data_i, data_j)[0][1]
                 else: # otherwise, it may divide zero
                     corr_matrix[i][j] = 0
+    # print(cov_matrix)
+    # np.set_printoptions(threshold=10000000)
     # print(corr_matrix)
     return cov_matrix, corr_matrix
 
@@ -115,5 +125,7 @@ def calcExpectedReturn_1():
     exp_return = np.zeros(NUM)
     for i in range(NUM):
         exp_return[i] = (close_price[i][end_date[i]] - close_price[i][start_date[i]]) / close_price[i][start_date[i]]
+        exp_return[i] = (exp_return[i] / (end_date[i] - start_date[i] + 1)) * 250 # Normalize to expected return per year
+        exp_return[i] -= 0.01 * (custodianFee[i] * 1 + managementFee[i])  # Assume we hold this asset for 1 year.
     # print(exp_return)
     return exp_return
