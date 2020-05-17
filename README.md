@@ -1,7 +1,15 @@
 # Portfolio-Optimization
 A course project for course "Introduction to Finance". Using  Markowitz's theory.
 
-Environment: Python3 + Numpy + Pandas
+### Requirements
+
+Python3 >=3.6.0, <4.0.0
+
+pyportfolioopt == 1.2.2
+
+numpy==1.16.2
+
+pandas==0.25.3
 
 ### Descriptions of file
 main.py should be the entrance.
